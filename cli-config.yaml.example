@@ -808,8 +808,8 @@ platform_toolsets:
 # Voice Transcription (Speech-to-Text)
 # =============================================================================
 # Automatically transcribe voice messages on messaging platforms.
-# Providers: local (free, faster-whisper) | groq (free tier) | openai (Whisper API) | mistral (Voxtral Transcribe)
-# Set the corresponding API key in .env: GROQ_API_KEY, OPENAI_API_KEY, or MISTRAL_API_KEY.
+# Providers: local (free, faster-whisper) | groq (free tier) | deepgram | openai (Whisper API) | mistral (Voxtral Transcribe)
+# Set the corresponding API key in .env: GROQ_API_KEY, DEEPGRAM_API_KEY, OPENAI_API_KEY, or MISTRAL_API_KEY.
 stt:
   enabled: true
   # provider: "local"          # auto-detected if omitted
@@ -818,6 +818,11 @@ stt:
     # language: ""             # auto-detect; set to "en", "es", "fr", etc. to force
   openai:
     model: "whisper-1"         # whisper-1 | gpt-4o-mini-transcribe | gpt-4o-transcribe
+  deepgram:
+    model: "nova-3"
+    smart_format: true
+    punctuate: true
+    # language: ""             # auto-detect; set to "ru", "en", etc. to force
   # mistral:
   #   model: "voxtral-mini-latest"  # voxtral-mini-latest | voxtral-mini-2602
 
