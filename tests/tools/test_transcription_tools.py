@@ -369,6 +369,7 @@ class TestTranscribeDeepgram:
         assert call.kwargs["headers"]["Content-Type"] == "audio/wav"
         assert call.kwargs["params"]["model"] == "nova-3"
         assert call.kwargs["params"]["smart_format"] == "true"
+        assert call.kwargs["params"]["detect_language"] == "true"
 
 
 # ============================================================================

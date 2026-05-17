@@ -1125,6 +1125,7 @@ DEFAULT_CONFIG = {
             "model": "nova-3",
             "smart_format": True,
             "punctuate": True,
+            "detect_language": True,
             "language": "",
         },
     },

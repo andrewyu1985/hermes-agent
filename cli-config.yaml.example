@@ -822,6 +822,7 @@ stt:
     model: "nova-3"
     smart_format: true
     punctuate: true
+    detect_language: true
     # language: ""             # auto-detect; set to "ru", "en", etc. to force
   # mistral:
   #   model: "voxtral-mini-latest"  # voxtral-mini-latest | voxtral-mini-2602

@@ -46,10 +46,17 @@ stt:
     model: nova-3
     smart_format: true
     punctuate: true
+    detect_language: true
+    language: ru
 ```
 
 The Deepgram API key lives only in `/root/.hermes/.env` as `DEEPGRAM_API_KEY`.
 Do not copy it into repository docs, logs, commits, or chat output.
+
+Deepgram models default to English when no language is supplied. The local
+server config sets `language: ru` because this Telegram bot is primarily used
+for Russian voice messages. If mixed-language use becomes important, clear
+`stt.deepgram.language` and keep `detect_language: true`.
 
 Quick non-secret checks:
 

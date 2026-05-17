@@ -843,6 +843,7 @@ def _transcribe_deepgram(file_path: str, model_name: str) -> Dict[str, Any]:
         or DEEPGRAM_STT_BASE_URL
     ).strip()
     language = str(deepgram_config.get("language") or "").strip()
+    detect_language = is_truthy_value(deepgram_config.get("detect_language", not language))
     smart_format = is_truthy_value(deepgram_config.get("smart_format", True))
     punctuate = is_truthy_value(deepgram_config.get("punctuate", True))
     diarize = is_truthy_value(deepgram_config.get("diarize", False))
@@ -854,6 +855,8 @@ def _transcribe_deepgram(file_path: str, model_name: str) -> Dict[str, Any]:
     }
     if language:
         params["language"] = language
+    elif detect_language:
+        params["detect_language"] = "true"
     if diarize:
         params["diarize"] = "true"
 
