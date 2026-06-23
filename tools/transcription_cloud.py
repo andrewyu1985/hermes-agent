@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 from utils import is_truthy_value
 from tools.transcription_audio import _transcode_audio_for_stt
 from tools.transcription_common import (
-    DEFAULT_GROQ_STT_MODEL, DEFAULT_STT_MODEL, ELEVENLABS_STT_BASE_URL, GROQ_BASE_URL, GROQ_MODELS,
+    DEEPGRAM_STT_BASE_URL, DEFAULT_GROQ_STT_MODEL, DEFAULT_STT_MODEL, ELEVENLABS_STT_BASE_URL, GROQ_BASE_URL, GROQ_MODELS,
     OPENAI_BASE_URL, OPENAI_MODELS, XAI_STT_BASE_URL, _error_result, _get_stt_section,
     _lazy_ensure_quietly, _log_prompt_unsupported, _ok_result)
 
@@ -29,6 +29,134 @@ logger = logging.getLogger("tools.transcription_tools")
 _ASR_TEXT_RE = re.compile(
     r"\s*language\s+[\w.-]+(?:\s*<audio_language>[^<]*</audio_language>)?\s*<asr_text>\s*(?P<text>.*)",
     flags=re.IGNORECASE | re.DOTALL)
+
+
+def _content_type_for_audio_path(file_path: str) -> str:
+    suffix = Path(file_path).suffix.lower()
+    return {
+        ".mp3": "audio/mpeg",
+        ".mp4": "audio/mp4",
+        ".mpeg": "audio/mpeg",
+        ".mpga": "audio/mpeg",
+        ".m4a": "audio/mp4",
+        ".wav": "audio/wav",
+        ".webm": "audio/webm",
+        ".ogg": "audio/ogg",
+        ".aac": "audio/aac",
+        ".flac": "audio/flac",
+    }.get(suffix, "application/octet-stream")
+
+
+def _extract_deepgram_transcript(result: Any) -> str:
+    if not isinstance(result, dict):
+        return ""
+    try:
+        channels = result.get("results", {}).get("channels", [])
+        transcripts = []
+        for channel in channels:
+            alternatives = channel.get("alternatives", []) if isinstance(channel, dict) else []
+            if not alternatives:
+                continue
+            transcript = str(alternatives[0].get("transcript") or "").strip()
+            if transcript:
+                transcripts.append(transcript)
+        return "\n".join(transcripts).strip()
+    except Exception:
+        return ""
+
+
+def _transcribe_deepgram(
+    file_path: str, model_name: str, *, language: Optional[str] = None, prompt: Optional[str] = None
+) -> Dict[str, Any]:
+    """Transcribe using Deepgram's prerecorded audio API."""
+    from tools.transcription_tools import (
+        _load_stt_config, _resolve_provider_key, _resolve_stt_language, get_env_value)
+    if prompt:
+        _log_prompt_unsupported("Deepgram")
+    api_key = _resolve_provider_key("DEEPGRAM_API_KEY", "deepgram")
+    if not api_key:
+        return {"success": False, "transcript": "", "error": "DEEPGRAM_API_KEY not set"}
+
+    stt_config = _load_stt_config()
+    deepgram_config = _get_stt_section(stt_config, "deepgram")
+    base_url = str(
+        deepgram_config.get("base_url")
+        or get_env_value("DEEPGRAM_STT_BASE_URL")
+        or DEEPGRAM_STT_BASE_URL
+    ).strip()
+    language = language or _resolve_stt_language("deepgram", stt_config)
+    detect_language = is_truthy_value(deepgram_config.get("detect_language", not language))
+    smart_format = is_truthy_value(deepgram_config.get("smart_format", True))
+    punctuate = is_truthy_value(deepgram_config.get("punctuate", True))
+    diarize = is_truthy_value(deepgram_config.get("diarize", False))
+
+    params: Dict[str, str] = {
+        "model": model_name,
+        "smart_format": "true" if smart_format else "false",
+        "punctuate": "true" if punctuate else "false",
+    }
+    if language:
+        params["language"] = language
+    elif detect_language:
+        params["detect_language"] = "true"
+    if diarize:
+        params["diarize"] = "true"
+
+    try:
+        import requests
+
+        headers = {
+            "Authorization": f"Token {api_key}",
+            "Content-Type": _content_type_for_audio_path(file_path),
+        }
+        with open(file_path, "rb") as audio_file:
+            response = requests.post(
+                base_url,
+                headers=headers,
+                params=params,
+                data=audio_file,
+                timeout=120,
+            )
+
+        if response.status_code != 200:
+            detail = ""
+            try:
+                payload = response.json()
+                detail = (
+                    str(payload.get("err_msg") or "")
+                    or str(payload.get("error") or "")
+                    or response.text[:300]
+                )
+            except Exception:
+                detail = response.text[:300]
+            return {
+                "success": False,
+                "transcript": "",
+                "error": f"Deepgram STT API error (HTTP {response.status_code}): {detail}",
+            }
+
+        result = response.json()
+        transcript_text = _extract_deepgram_transcript(result)
+        if not transcript_text:
+            return {
+                "success": False,
+                "transcript": "",
+                "error": "Deepgram STT returned empty transcript",
+            }
+
+        logger.info(
+            "Transcribed %s via Deepgram API (%s, %d chars)",
+            Path(file_path).name,
+            model_name,
+            len(transcript_text),
+        )
+        return {"success": True, "transcript": transcript_text, "provider": "deepgram"}
+
+    except PermissionError:
+        return {"success": False, "transcript": "", "error": f"Permission denied: {file_path}"}
+    except Exception as e:
+        logger.error("Deepgram transcription failed: %s", e, exc_info=True)
+        return {"success": False, "transcript": "", "error": f"Deepgram transcription failed: {e}"}
 
 
 def _has_xai_stt_credentials() -> bool:

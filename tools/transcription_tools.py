@@ -2,7 +2,7 @@
 """Speech-to-text transcription used by the gateway for voice messages.
 
 Built-in providers: local (faster-whisper, default/free), local_command, groq, openai
-(also serves the managed ``nous`` selection), mistral, xai, elevenlabs, deepinfra; plus
+(also serves the managed ``nous`` selection), mistral, xai, elevenlabs, deepinfra, deepgram; plus
 user-declared command providers and plugin providers. ``transcribe_audio(path)`` returns
 ``{"success", "transcript", "error"?, "provider"?}``. This module owns provider resolution,
 the dispatcher and the cached local model + idle-unload state; backends live in
@@ -21,6 +21,7 @@ from typing import Optional, Dict, Any
 from utils import is_truthy_value
 from tools.transcription_common import (
     BUILTIN_STT_PROVIDERS, CLOUD_STT_PROVIDERS, DEFAULT_ELEVENLABS_STT_MODEL,
+    DEFAULT_DEEPGRAM_STT_MODEL,
     DEFAULT_GROQ_STT_MODEL, DEFAULT_LOCAL_MODEL, DEFAULT_MISTRAL_STT_MODEL, DEFAULT_PROVIDER,
     DEFAULT_STT_MODEL, LOCAL_STT_COMMAND_ENV, LOCAL_STT_LANGUAGE_ENV, _error_result,
     _get_stt_section, _ok_result)
@@ -34,7 +35,7 @@ from tools.transcription_local import (
 # The ``_transcribe_<provider>`` handlers are looked up in this module's globals by _dispatch_stt_provider.
 from tools.transcription_cloud import (  # noqa: F401  (handlers dispatched via globals())
     _has_xai_stt_credentials, _resolve_openai_audio_client_config, _transcribe_deepinfra,
-    _transcribe_elevenlabs, _transcribe_groq, _transcribe_mistral, _transcribe_openai,
+    _transcribe_deepgram, _transcribe_elevenlabs, _transcribe_groq, _transcribe_mistral, _transcribe_openai,
     _transcribe_xai)
 from tools.transcription_command import (
     _apply_pre_transcription_hook, _dispatch_to_plugin_provider, _enforce_prompt_length_limit,
@@ -193,6 +194,7 @@ def _resolve_explicit_local_command() -> str:
     return "none"
 
 
+_has_deepgram_key = _has_key("DEEPGRAM_API_KEY", "deepgram")
 _has_groq_key = _has_key("GROQ_API_KEY", "groq", needs_openai=True)
 _has_mistral_key = _has_key("MISTRAL_API_KEY", "mistral", needs_mistral=True)
 _has_elevenlabs_key = _has_key("ELEVENLABS_API_KEY", "elevenlabs")
@@ -209,6 +211,9 @@ _CLOUD_PROVIDER_SPECS = {
     "groq": (_has_groq_key, _has_groq_key,
              "STT provider 'groq' configured but GROQ_API_KEY not set",
              "No local STT available, using Groq Whisper API"),
+    "deepgram": (_has_deepgram_key, _has_deepgram_key,
+                 "STT provider 'deepgram' configured but DEEPGRAM_API_KEY not set",
+                 "No local/Groq STT available, using Deepgram API"),
     "openai": (None, lambda: _HAS_OPENAI and _has_openai_audio_backend(),
                None,
                "No local STT available, using OpenAI Whisper API"),
@@ -247,7 +252,7 @@ def _resolve_explicit_provider(provider: str) -> str:
 
 def _get_provider(stt_config: dict) -> str:
     """Which STT provider to use: an explicit ``stt.provider`` is honoured (no silent cloud
-    fallback); otherwise auto-detect local > groq > openai > mistral > xai > elevenlabs > deepinfra."""
+    fallback); otherwise auto-detect local > groq > deepgram > openai > mistral > xai > elevenlabs > deepinfra."""
     if not is_stt_enabled(stt_config):
         return "none"
     explicit = "provider" in stt_config
@@ -444,6 +449,7 @@ _BUILTIN_MODEL_KEYS = {
     "local": ("local", "model", DEFAULT_LOCAL_MODEL, False),
     "local_command": ("local", "model", DEFAULT_LOCAL_MODEL, False),
     "groq": ("groq", "model", DEFAULT_GROQ_STT_MODEL, True),
+    "deepgram": ("deepgram", "model", DEFAULT_DEEPGRAM_STT_MODEL, False),
     "openai": ("openai", "model", DEFAULT_STT_MODEL, False),
     "mistral": ("mistral", "model", DEFAULT_MISTRAL_STT_MODEL, False),
     "elevenlabs": ("elevenlabs", "model_id", DEFAULT_ELEVENLABS_STT_MODEL, False),
@@ -509,7 +515,8 @@ def _no_provider_error(provider: str, stt_config: Dict[str, Any]) -> Dict[str, A
     return _error_result(
         "No STT provider available. Install faster-whisper for free local "
         f"transcription, configure {LOCAL_STT_COMMAND_ENV} or install a local whisper CLI, "
-        "set GROQ_API_KEY for free Groq Whisper, set MISTRAL_API_KEY for Mistral "
+        "set GROQ_API_KEY for free Groq Whisper, set DEEPGRAM_API_KEY for Deepgram, "
+        "set MISTRAL_API_KEY for Mistral "
         "Voxtral Transcribe, configure xAI OAuth or set XAI_API_KEY for xAI Grok STT, "
         "set ELEVENLABS_API_KEY for ElevenLabs Scribe, or set VOICE_TOOLS_OPENAI_KEY "
         "or OPENAI_API_KEY for the OpenAI Whisper API.")

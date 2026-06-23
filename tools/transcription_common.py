@@ -12,6 +12,9 @@ from tools.tts_command_provider import _get_provider_section as _get_stt_section
 # Log-record parity with the origin module.
 logger = logging.getLogger("tools.transcription_tools")
 
+DEFAULT_DEEPGRAM_STT_MODEL = os.getenv("STT_DEEPGRAM_MODEL", "nova-3")
+DEEPGRAM_STT_BASE_URL = os.getenv("DEEPGRAM_STT_BASE_URL", "https://api.deepgram.com/v1/listen")
+
 DEFAULT_PROVIDER = "local"
 DEFAULT_LOCAL_MODEL = "base"
 DEFAULT_LOCAL_STT_LANGUAGE = "en"
@@ -43,7 +46,7 @@ GROQ_MODELS = {"whisper-large-v3", "whisper-large-v3-turbo", "distil-whisper-lar
 # The plugin hook from issue #30398-style follow-up rejects plugins registering under any of these names;
 # the dispatcher in ``transcribe_audio`` short-circuits them defensively as well.
 BUILTIN_STT_PROVIDERS = frozenset({
-    "local", "local_command", "groq", "openai", "mistral", "xai", "elevenlabs", "deepinfra"})
+    "local", "local_command", "groq", "openai", "mistral", "xai", "elevenlabs", "deepinfra", "deepgram"})
 # Built-in providers that upload audio to a remote API.
 CLOUD_STT_PROVIDERS = frozenset(BUILTIN_STT_PROVIDERS - {"local", "local_command"})
 

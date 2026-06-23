@@ -83,6 +83,7 @@ def clean_env(monkeypatch):
     monkeypatch.delenv("VOICE_TOOLS_OPENAI_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
     monkeypatch.delenv("HERMES_LOCAL_STT_COMMAND", raising=False)
@@ -102,6 +103,39 @@ class TestGetProviderGroq:
              patch("tools.transcription_tools._HAS_FASTER_WHISPER", False):
             from tools.transcription_tools import _get_provider
             assert _get_provider({"provider": "groq"}) == "groq"
+
+    def test_groq_explicit_no_fallback(self, monkeypatch):
+        """Explicit groq with no key returns none — no cross-provider fallback."""
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True):
+            from tools.transcription_tools import _get_provider
+            assert _get_provider({"provider": "groq"}) == "none"
+
+    def test_groq_nothing_available(self, monkeypatch):
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        monkeypatch.delenv("VOICE_TOOLS_OPENAI_KEY", raising=False)
+        with patch("tools.transcription_tools._HAS_FASTER_WHISPER", False), \
+             patch("tools.transcription_tools._HAS_OPENAI", False):
+            from tools.transcription_tools import _get_provider
+            assert _get_provider({"provider": "groq"}) == "none"
+
+
+class TestGetProviderDeepgram:
+    """Deepgram-specific provider selection tests."""
+
+    def test_deepgram_when_key_set(self, monkeypatch):
+        monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-test")
+        from tools.transcription_tools import _get_provider
+
+        assert _get_provider({"provider": "deepgram"}) == "deepgram"
+
+    def test_deepgram_explicit_no_fallback(self, monkeypatch):
+        monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+        with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True):
+            from tools.transcription_tools import _get_provider
+
+            assert _get_provider({"provider": "deepgram"}) == "none"
+
 
 class TestGetProviderFallbackPriority:
     """Auto-detect fallback priority and explicit provider behaviour."""
@@ -533,6 +567,18 @@ class TestTranscribeAudioDispatch:
         mock_local.assert_called_once()
 
 
+    def test_dispatches_to_deepgram(self, sample_ogg):
+        with patch("tools.transcription_tools._load_stt_config", return_value={"provider": "deepgram"}), \
+             patch("tools.transcription_tools._get_provider", return_value="deepgram"), \
+             patch("tools.transcription_tools._transcribe_deepgram",
+                   return_value={"success": True, "transcript": "hi", "provider": "deepgram"}) as mock_deepgram:
+            from tools.transcription_tools import transcribe_audio
+            result = transcribe_audio(sample_ogg)
+
+        assert result["success"] is True
+        assert result["provider"] == "deepgram"
+        mock_deepgram.assert_called_once()
+
     def test_no_provider_returns_error(self, sample_ogg):
         with patch("tools.transcription_tools._load_stt_config", return_value={}), \
              patch("tools.transcription_tools._get_provider", return_value="none"):
@@ -579,6 +625,47 @@ class TestTranscribeAudioDispatch:
             transcribe_audio(sample_ogg, model=None)
 
         assert mock_local.call_args[0][1] == "small"
+
+# ============================================================================
+# _transcribe_deepgram
+# ============================================================================
+
+class TestTranscribeDeepgram:
+    def test_no_key(self, monkeypatch):
+        monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+        from tools.transcription_tools import _transcribe_deepgram
+
+        result = _transcribe_deepgram("/tmp/test.ogg", "nova-3")
+
+        assert result["success"] is False
+        assert "DEEPGRAM_API_KEY" in result["error"]
+
+    def test_successful_transcription(self, monkeypatch, sample_wav):
+        monkeypatch.setenv("DEEPGRAM_API_KEY", "dg-test")
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "results": {
+                "channels": [
+                    {"alternatives": [{"transcript": "hello from deepgram"}]}
+                ]
+            }
+        }
+
+        with patch("requests.post", return_value=response) as mock_post:
+            from tools.transcription_tools import _transcribe_deepgram
+            from tools.transcription_common import DEEPGRAM_STT_BASE_URL
+
+            result = _transcribe_deepgram(sample_wav, "nova-3")
+
+        assert result == {
+            "success": True,
+            "transcript": "hello from deepgram",
+            "provider": "deepgram",
+        }
+        assert mock_post.call_args.args[0] == DEEPGRAM_STT_BASE_URL
+        assert mock_post.call_args.kwargs["headers"]["Authorization"] == "Token dg-test"
+
 
 # ============================================================================
 # _transcribe_mistral
