@@ -26,14 +26,6 @@ ERROR_PATTERNS = [
     r"TypeError: 'NoneType' object is not iterable",
 ]
 
-REQUIRED_FIXES = [
-    (HERMES_DIR / "agent/codex_runtime.py", r"NoneType.*iterable", 1, "documented output=null / NoneType iterable regression note"),
-    (HERMES_DIR / "agent/codex_runtime.py", r"def _consume_codex_event_stream", 1, "event-driven Codex SSE consumer"),
-    (HERMES_DIR / "agent/codex_runtime.py", r"responses\.create", 1, "raw responses.create(stream=True) path"),
-    (HERMES_DIR / "agent/codex_runtime.py", r"stream_kwargs\[\"stream\"\] = True", 1, "stream=True low-level kwargs"),
-    (HERMES_DIR / "agent/conversation_loop.py", r"except \(TypeError|except TypeError|isinstance\(api_error, TypeError\)", 1, "TypeError-aware response recovery"),
-    (HERMES_DIR / "agent/conversation_loop.py", r"output_text", 1, "output_text fallback"),
-]
 
 
 def load_env() -> dict[str, str]:
@@ -106,18 +98,11 @@ def check_recent_errors(minutes: int = 60) -> list[str]:
 
 
 def check_fixes() -> list[str]:
-    missing: list[str] = []
-    cache: dict[Path, str] = {}
-    for path, pattern, minimum, description in REQUIRED_FIXES:
-        try:
-            text = cache.setdefault(path, path.read_text(encoding="utf-8", errors="replace"))
-            count = len(re.findall(pattern, text))
-        except Exception as exc:
-            missing.append(f"{description}: check error {type(exc).__name__}: {exc}")
-            continue
-        if count < minimum:
-            missing.append(f"{description}: {count}, expected >= {minimum}")
-    return missing
+    try:
+        from hermes_integrity import check_integrity
+        return check_integrity(HERMES_DIR)
+    except Exception as exc:
+        return [f"integrity checker unavailable; manual review required: {exc}"]
 
 
 def main() -> int:
