@@ -58,6 +58,21 @@ class TestActiveDetection:
 
 class TestModelPicker:
 
+    def test_deepgram_model_selector_is_backed_by_loaded_default(self, tmp_path, monkeypatch):
+        """The dashboard selector is generated only when the runtime registry owns its path."""
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        from hermes_cli.config import load_config
+        from hermes_cli.web_server_config import CONFIG_SCHEMA
+
+        loaded = load_config()
+        assert loaded["stt"]["deepgram"]["model"] == "nova-3"
+        assert CONFIG_SCHEMA["stt.deepgram.model"] == {
+            "type": "select",
+            "description": "Deepgram transcription model",
+            "options": STT_MODEL_CATALOG["deepgram"],
+            "category": "stt",
+        }
+
     def test_every_model_picker_lists_the_runtime_catalog(self):
         """Dashboard selects and Desktop suggestions offer exactly STT_MODEL_CATALOG per provider."""
         import re

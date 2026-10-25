@@ -57,7 +57,8 @@ _FEATURES: dict[str, _FeatureSpec] = {
     ),
     "stt": _FeatureSpec(
         "Speech-to-text", True, "openai-audio", "openai-audio", ("stt", "provider"),
-        "Speech-to-text (OpenAI Whisper)", "OpenAI/Groq/Mistral key", ("GROQ_API_KEY", "MISTRAL_API_KEY"),
+        "Speech-to-text (OpenAI Whisper)", "OpenAI/Groq/Mistral/Deepgram key",
+        ("GROQ_API_KEY", "MISTRAL_API_KEY", "DEEPGRAM_API_KEY"),
     ),
     "browser": _FeatureSpec(
         "Browser automation", True, "browser-use", "browser-use", ("browser", "cloud_provider"),
@@ -216,6 +217,7 @@ _PROVIDER_LABELS = {
     }),
     "stt": ("local", {
         "openai": "OpenAI Whisper", "groq": "Groq Whisper", "mistral": "Mistral Voxtral Transcribe",
+        "deepgram": "Deepgram",
         "local": "Local faster-whisper",
     }),
 }
@@ -344,6 +346,7 @@ def _audio_features(
     stt_available = bool({
         "local": _local_stt_backend_available() and not stt_gw, "openai": managed["stt"] or direct_openai_stt,
         "groq": _any_env("GROQ_API_KEY") and not stt_gw, "mistral": _any_env("MISTRAL_API_KEY") and not stt_gw,
+        "deepgram": _any_env("DEEPGRAM_API_KEY") and not stt_gw,
     }.get(stt_current, False))
     stt = _state(
         "stt", available=stt_available, active=stt_available, toolset_enabled=True,
@@ -527,7 +530,7 @@ def _get_gateway_direct_credentials() -> dict[str, bool]:
         "image_gen": fal_direct,
         "video_gen": fal_direct,
         "tts": audio_direct or _any_env("ELEVENLABS_API_KEY"),
-        "stt": audio_direct or _any_env("GROQ_API_KEY", "MISTRAL_API_KEY"),
+        "stt": audio_direct or _any_env("GROQ_API_KEY", "MISTRAL_API_KEY", "DEEPGRAM_API_KEY"),
         "browser": (
             _any_env("BROWSER_USE_API_KEY", "CAMOFOX_URL")
             or bool(get_env_value("BROWSERBASE_API_KEY") and get_env_value("BROWSERBASE_PROJECT_ID"))

@@ -1142,13 +1142,11 @@ DEFAULT_CONFIG = {
         "enabled": True,
         # Echo the raw transcript of gateway voice messages back as a 🎙️ message.
         "echo_transcripts": True,
-        # No seeded "provider" (a stored value is an explicit pick; unset = autodetect): local | groq |
-        # openai | mistral | elevenlabs | deepinfra | xai. Global language hint unless a per-provider one
-        # overrides it; "en" because Whisper auto-detect misreads short clips; "" = auto; "es", ...
+        # No seeded "provider"; a stored value is explicit, while unset means autodetect. Options: local,
+        # groq, openai, mistral, elevenlabs, deepinfra, deepgram, xai. Language "en" avoids short-clip misreads; "" = auto.
         "language": "en",
         "streaming": False,  # live partial text while speaking (openai/xai/elevenlabs); failure = file path
-        # Pre-upload ffmpeg silence trim (local whisper uses VAD); failure = raw upload.
-        "cloud_trim_silence": True,
+        "cloud_trim_silence": True,  # Pre-upload ffmpeg trim (local uses VAD); failure = raw upload
         "cloud_trim_threshold_db": -40,  # quieter than this counts as silence
         "cloud_trim_keep_ms": 300,  # how much of each pause survives (natural pacing)
         "local": {
@@ -1194,6 +1192,7 @@ DEFAULT_CONFIG = {
             "model": "",  # empty = first stt-tagged model from the live catalog
             # optional "base_url" key overrides DEEPINFRA_BASE_URL for STT only
         },
+        "deepgram": {"model": "nova-3"},
     },
 
     "voice": {
@@ -2907,6 +2906,7 @@ OPTIONAL_ENV_VARS = OptionalEnvVars({
         tools=["elevenlabs_tts", "voice_transcription"]),
     "MISTRAL_API_KEY": _tool("Mistral API key for Voxtral TTS and transcription (STT)",
         "Mistral API key", "https://console.mistral.ai/"),
+    "DEEPGRAM_API_KEY": _tool("Deepgram API key for speech-to-text transcription", "Deepgram API key", "https://console.deepgram.com/", tools=["voice_transcription"]),
     "PORCUPINE_ACCESS_KEY": _tool(
         "Picovoice access key for the Porcupine 'Hey Hermes' wake word engine (optional; "
         "openWakeWord is the free default)", "Picovoice access key",

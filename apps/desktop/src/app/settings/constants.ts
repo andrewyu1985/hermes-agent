@@ -251,7 +251,7 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
   'stt.local.model': ['tiny', 'base', 'small', 'medium', 'large-v3', 'turbo'],
   // Speech-to-text backends — kept in sync with BUILTIN_STT_PROVIDERS in
   // tools/transcription_common.py (local_command is auto-detected, not picked).
-  'stt.provider': ['local', 'groq', 'openai', 'mistral', 'xai', 'elevenlabs', 'deepinfra'],
+  'stt.provider': ['local', 'groq', 'openai', 'mistral', 'xai', 'elevenlabs', 'deepinfra', 'deepgram'],
   // How the desktop voice conversation is wired — tools/voice_live.py owns the
   // gpt-live branch (one full-duplex voice model delegating to Hermes).
   'voice.voice_chat_mode': ['chained', 'gpt-live'],
@@ -370,6 +370,7 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
   'stt.groq.model': ['whisper-large-v3-turbo', 'whisper-large-v3'],
   'stt.mistral.model': ['voxtral-mini-latest', 'voxtral-mini-2602'],
   'stt.xai.model': ['grok-voice-transcribe-2.0', 'grok-voice-transcribe-1.0'],
+  'stt.deepgram.model': ['nova-3', 'nova-2'],
   'tts.openai.model': ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd'],
   'tts.elevenlabs.model_id': [
     'eleven_v3',
@@ -402,6 +403,7 @@ export const FREE_INPUT_KEYS = new Set([
   'stt.mistral.model',
   'stt.xai.model',
   'stt.deepinfra.model',
+  'stt.deepgram.model',
   'tts.gemini.model',
   'tts.gemini.voice',
   'tts.xai.voice_id',
@@ -511,6 +513,9 @@ export const FIELD_LABELS: Record<string, string> = defineFieldCopy({
     },
     deepinfra: {
       model: 'DeepInfra STT Model'
+    },
+    deepgram: {
+      model: 'Deepgram STT Model'
     },
     elevenlabs: {
       modelId: 'ElevenLabs STT Model',
@@ -836,6 +841,7 @@ export const SECTIONS: DesktopConfigSection[] = [
       'stt.mistral.model',
       'stt.xai.model',
       'stt.deepinfra.model',
+      'stt.deepgram.model',
       'stt.elevenlabs.model_id',
       'stt.elevenlabs.language_code',
       'stt.elevenlabs.tag_audio_events',

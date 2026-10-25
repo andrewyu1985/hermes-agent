@@ -236,6 +236,7 @@ _NOUS = {"requires_nous_auth": True}
 _OPENAI_VOICE_KEY = _key("VOICE_TOOLS_OPENAI_KEY", "OpenAI API key", "https://platform.openai.com/api-keys")
 _ELEVENLABS_KEY = _key("ELEVENLABS_API_KEY", "ElevenLabs API key", "https://elevenlabs.io/app/settings/api-keys")
 _DEEPINFRA_KEY = _key("DEEPINFRA_API_KEY", "DeepInfra API key", "https://deepinfra.com/dash/api_keys")
+_DEEPGRAM_KEY = _key("DEEPGRAM_API_KEY", "Deepgram API key", "https://console.deepgram.com/")
 
 TOOL_CATEGORIES = {
     "tts": {
@@ -277,6 +278,8 @@ TOOL_CATEGORIES = {
             _row("Mistral Voxtral", "paid", "voxtral-mini-latest — multilingual",
                  [_key("MISTRAL_API_KEY", "Mistral API key", "https://console.mistral.ai/")], stt_provider="mistral"),
             _row("DeepInfra", "paid", "Live STT catalog from api.deepinfra.com", [_DEEPINFRA_KEY], stt_provider="deepinfra"),
+            _row("Deepgram", "paid", "nova-3 — multilingual prerecorded transcription", [_DEEPGRAM_KEY],
+                 stt_provider="deepgram"),
         ],
     },
     "web": {

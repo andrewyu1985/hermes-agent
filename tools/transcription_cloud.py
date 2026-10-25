@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 from utils import is_truthy_value
 from tools.transcription_audio import _transcode_audio_for_stt
 from tools.transcription_common import (
-    DEFAULT_GROQ_STT_MODEL, DEFAULT_STT_MODEL, ELEVENLABS_STT_BASE_URL,
+    DEEPGRAM_STT_BASE_URL, DEFAULT_GROQ_STT_MODEL, DEFAULT_STT_MODEL, ELEVENLABS_STT_BASE_URL,
     GROQ_BASE_URL, GROQ_MODELS, OPENAI_BASE_URL, OPENAI_MODELS, RETIRED_GROQ_MODELS, STTResponseError,
     XAI_STT_BASE_URL,
     _error_result, _get_stt_section, _lazy_ensure_quietly, _log_prompt_unsupported, _ok_result,
@@ -222,6 +222,67 @@ def _post_audio_multipart(url: str, headers: dict[str, str], file_path: str, dat
     with open(file_path, "rb") as audio_file:
         return requests.post(url, headers=headers, files={"file": (Path(file_path).name, audio_file)},
                              data=data, timeout=120)
+
+
+def _audio_content_type(file_path: str) -> str:
+    return {
+        ".aac": "audio/aac", ".flac": "audio/flac", ".m4a": "audio/mp4",
+        ".mp3": "audio/mpeg", ".mp4": "audio/mp4", ".mpeg": "audio/mpeg",
+        ".mpga": "audio/mpeg", ".ogg": "audio/ogg", ".oga": "audio/ogg",
+        ".opus": "audio/ogg", ".wav": "audio/wav", ".webm": "audio/webm",
+    }.get(Path(file_path).suffix.lower(), "application/octet-stream")
+
+
+def _deepgram_transcript(body: dict[str, Any]) -> str:
+    channels = (body.get("results") or {}).get("channels") or []
+    transcripts = []
+    for channel in channels:
+        alternatives = channel.get("alternatives") or [] if isinstance(channel, dict) else []
+        if alternatives:
+            text = str(alternatives[0].get("transcript") or "").strip()
+            if text:
+                transcripts.append(text)
+    return "\n".join(transcripts)
+
+
+def _transcribe_deepgram(
+    file_path: str, model_name: str, *, language: Optional[str] = None, prompt: Optional[str] = None
+) -> dict[str, Any]:
+    """Transcribe prerecorded audio through Deepgram's native ``/v1/listen`` API."""
+    from tools.transcription_tools import _load_stt_config, _resolve_provider_key, _resolve_stt_language
+    api_key = _resolve_provider_key("DEEPGRAM_API_KEY", "deepgram")
+    if not api_key:
+        return _error_result("DEEPGRAM_API_KEY not set")
+    stt_config = _load_stt_config()
+    deepgram_config = _get_stt_section(stt_config, "deepgram")
+    language = language or _resolve_stt_language("deepgram", stt_config)
+    params = {
+        "model": model_name,
+        "smart_format": str(is_truthy_value(deepgram_config.get("smart_format", True))).lower(),
+        "punctuate": str(is_truthy_value(deepgram_config.get("punctuate", True))).lower(),
+    }
+    if language:
+        params["language"] = language
+    if prompt:
+        is_nova_3_family = model_name == "nova-3" or model_name.startswith("nova-3-")
+        params["keyterm" if is_nova_3_family else "keywords"] = prompt
+
+    def _post():
+        import requests
+        headers = {"Authorization": f"Token {api_key}", "Content-Type": _audio_content_type(file_path)}
+        with open(file_path, "rb") as audio_file:
+            return requests.post(
+                str(deepgram_config.get("base_url") or DEEPGRAM_STT_BASE_URL).rstrip("/"),
+                headers=headers, params=params, data=audio_file, timeout=120)
+
+    def _detail(body: dict[str, Any]) -> str:
+        return str(body.get("err_msg") or body.get("error") or "")
+
+    def _log(text: str, _body: dict[str, Any]) -> None:
+        logger.info("Transcribed %s via Deepgram API (%s, %d chars)",
+                    Path(file_path).name, model_name, len(text))
+
+    return _rest_provider(file_path, "deepgram", "Deepgram STT", _post, _detail, _deepgram_transcript, _log)
 
 
 def _rest_provider(

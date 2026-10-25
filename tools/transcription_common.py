@@ -19,6 +19,7 @@ DEFAULT_STT_MODEL = os.getenv("STT_OPENAI_MODEL", "whisper-1")
 DEFAULT_GROQ_STT_MODEL = os.getenv("STT_GROQ_MODEL", "whisper-large-v3-turbo")
 DEFAULT_MISTRAL_STT_MODEL = os.getenv("STT_MISTRAL_MODEL", "voxtral-mini-latest")
 DEFAULT_ELEVENLABS_STT_MODEL = os.getenv("STT_ELEVENLABS_MODEL", "scribe_v2")
+DEFAULT_DEEPGRAM_STT_MODEL = "nova-3"
 # Seconds for one STT HTTP request; shared by the OpenAI-SDK path and the QQ adapter so a
 # self-hosted model's cold start is not cut off at the old fixed 30s (#112939).
 DEFAULT_STT_TIMEOUT = 60.0
@@ -35,6 +36,7 @@ GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 OPENAI_BASE_URL = os.getenv("STT_OPENAI_BASE_URL", "https://api.openai.com/v1")
 XAI_STT_BASE_URL = os.getenv("XAI_STT_BASE_URL", "https://api.x.ai/v1")
 ELEVENLABS_STT_BASE_URL = os.getenv("ELEVENLABS_STT_BASE_URL", "https://api.elevenlabs.io/v1")
+DEEPGRAM_STT_BASE_URL = "https://api.deepgram.com/v1/listen"
 # DeepInfra STT base URL is resolved via hermes_cli.models.deepinfra_base_url (shared).
 
 SUPPORTED_FORMATS = {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm", ".ogg", ".oga", ".opus", ".aac", ".flac", ".caf"}
@@ -50,7 +52,8 @@ STT_MODEL_CATALOG = {
     "openai": ["whisper-1", "gpt-4o-mini-transcribe", "gpt-4o-transcribe", "gpt-transcribe"],
     "mistral": ["voxtral-mini-latest", "voxtral-mini-2602"],
     "xai": ["grok-voice-transcribe-2.0", "grok-voice-transcribe-1.0"],
-    "elevenlabs": ["scribe_v2", "scribe_v1"]}
+    "elevenlabs": ["scribe_v2", "scribe_v1"],
+    "deepgram": ["nova-3", "nova-2"]}
 # ElevenLabs historically uses ``model_id`` instead of ``model``.
 STT_MODEL_CONFIG_KEY = {"elevenlabs": "model_id"}
 
@@ -66,7 +69,7 @@ RETIRED_GROQ_MODELS = frozenset({"distil-whisper-large-v3-en"})
 # The plugin hook from issue #30398-style follow-up rejects plugins registering under any of these names;
 # the dispatcher in ``transcribe_audio`` short-circuits them defensively as well.
 BUILTIN_STT_PROVIDERS = frozenset({
-    "local", "local_command", "groq", "openai", "mistral", "xai", "elevenlabs", "deepinfra"})
+    "local", "local_command", "groq", "openai", "mistral", "xai", "elevenlabs", "deepinfra", "deepgram"})
 # Built-in providers that upload audio to a remote API.
 CLOUD_STT_PROVIDERS = frozenset(BUILTIN_STT_PROVIDERS - {"local", "local_command"})
 
